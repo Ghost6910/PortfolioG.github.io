@@ -468,6 +468,36 @@ void main() {
         (err) => console.error(err)
       );
 
+      //hddr1
+      let hddr1;
+      loader.load(
+        "https://Ghost6910.github.io/PortfolioG.github.io/model/hddr1.glb",
+        (gltf) => {
+          hddr1 = gltf.scene;
+         hddr1.traverse((o) => {
+            if (o.isMesh) {
+              o.castShadow = true;
+              o.receiveShadow = true;
+              if (o.material && o.material.map) {
+                o.material.map.encoding = THREE.sRGBEncoding;
+                o.material.needsUpdate = true;
+              }
+            }
+          });
+          hddr1.position.set(1,1,1);
+          hddr1.scale.set(100,100,100);
+          scene.add(hddr1);
+        },
+        (xhr) =>
+          console.log(
+            `Loading: ${(xhr.total
+              ? (xhr.loaded / xhr.total) * 100
+              : 0
+            ).toFixed(1)}%`
+          ),
+        (err) => console.error(err)
+      );
+
       // Makima
       loader.load(
         "https://Ghost6910.github.io/PortfolioG.github.io/model/makima.glb",
