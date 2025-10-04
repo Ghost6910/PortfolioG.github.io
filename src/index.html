@@ -544,7 +544,7 @@ void main() {
               }
             }
           });
-          Ghost.position.set(-1.3, 0.8, 5.5);
+          Ghost.position.set(-1.30, 0.8, 6);
           Ghost.scale.set(1, 1, 1);
           //makima.rotation.y = Math.PI / 2;
           Ghost.rotation.y = THREE.MathUtils.degToRad(130);
@@ -762,12 +762,12 @@ void main() {
       );
 
       //My name
-      let nameGG;
+      let namenew;
       loader.load(
-        "https://Ghost6910.github.io/PortfolioG.github.io/model/nameGG.glb",
+        "https://Ghost6910.github.io/PortfolioG.github.io/model/namenew.glb",
         (gltf) => {
-          nameGG = gltf.scene;
-          nameGG.traverse((o) => {
+          namenew = gltf.scene;
+          namenew.traverse((o) => {
             if (o.isMesh) {
               o.castShadow = true;
               o.receiveShadow = true;
@@ -777,7 +777,7 @@ void main() {
                 if (o.material.map) {
                   o.material.map.encoding = THREE.sRGBEncoding;
                 }
-                o.material.color.set(0xff6600); 
+                o.material.color.set(0x282828); 
                 o.material.metalness = 0.2; // ทำให้ไม่เงาเกินไป
                 o.material.roughness = 0.6; // ปรับผิวให้ดูเป็นด้าน
 
@@ -785,10 +785,11 @@ void main() {
               }
             }
           });
-          nameGG.position.set(-1.9, 1.4, 4.3);
-          nameGG.scale.set(0.15, 0.15, 0.15);
-          nameGG.rotation.y = Math.PI / 2;
-          scene.add(nameGG);
+          namenew.position.set(-2.2, 1.2, 4.5);
+          namenew.scale.set(0.2, 0.2, 0.2);
+          //namenew.rotation.y = Math.PI / 2;
+          namenew.rotation.y = THREE.MathUtils.degToRad(110);
+          scene.add(namenew);
         },
         (xhr) =>
           console.log(
@@ -813,9 +814,10 @@ void main() {
               o.receiveShadow = false;
             }
           });
-          backright.position.set(-1.9, 1.15, 4.65);
+          backright.position.set(-2.2, 1.05, 4.5);
           backright.scale.set(0.15, 0.15, 0.15);
-          backright.rotation.y = Math.PI / 2;
+          //backright.rotation.y = Math.PI / 2;
+          backright.rotation.y = THREE.MathUtils.degToRad(110);
           scene.add(backright);
           backRoots.push(backright);
         },
