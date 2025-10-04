@@ -762,12 +762,12 @@ void main() {
       );
 
       //My name
-      let nameG;
+      let nameGG;
       loader.load(
-        "https://Ghost6910.github.io/PortfolioG.github.io/model/name.glb",
+        "https://Ghost6910.github.io/PortfolioG.github.io/model/nameGG.glb",
         (gltf) => {
-          nameG = gltf.scene;
-          nameG.traverse((o) => {
+          nameGG = gltf.scene;
+          nameGG.traverse((o) => {
             if (o.isMesh) {
               o.castShadow = true;
               o.receiveShadow = true;
@@ -785,10 +785,10 @@ void main() {
               }
             }
           });
-          nameG.position.set(-1.9, 1.4, 4.3);
-          nameG.scale.set(0.15, 0.15, 0.15);
-          nameG.rotation.y = Math.PI / 2;
-          scene.add(nameG);
+          nameGG.position.set(-1.9, 1.4, 4.3);
+          nameGG.scale.set(0.15, 0.15, 0.15);
+          nameGG.rotation.y = Math.PI / 2;
+          scene.add(nameGG);
         },
         (xhr) =>
           console.log(
