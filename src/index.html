@@ -21,7 +21,69 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/DRACOLoader.js"></script>
 
+    <!-- Loading Screen -->
+    <div id="loading-screen">
+      <div class="loader"></div>
+      <p>Loading models</p>
+    </div>
+
+    <style>
+      #loading-screen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: #000;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        color: rgb(255, 145, 0);
+        font-family: monospace;
+        font-size: 18px;
+        z-index: 9999;
+        transition: opacity 5s ease;
+      }
+
+      #loading-screen.fade-out {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .loader {
+        border: 5px solid #333;
+        border-top: 5px solid rgb(255, 145, 0);
+        border-radius: 50%;
+        width: 60px;
+        height: 60px;
+        animation: spin 1s linear infinite;
+        margin-bottom: 20px;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+
     <script>
+      let modelsToLoad = 12; // จำนวนโมเดลทั้งหมดที่ต้องโหลด
+      let modelsLoaded = 0;
+
+      function checkLoadingDone() {
+        modelsLoaded++;
+        if (modelsLoaded >= modelsToLoad) {
+          const screen = document.getElementById("loading-screen");
+          screen.classList.add("fade-out");
+          setTimeout(() => screen.remove(), 500);
+        }
+      }
+
       // === Gradient map สำหรับ Toon (โทน 4 ขั้น) ===
       function makeGradientMap(steps = 4) {
         const size = 256;
@@ -125,7 +187,7 @@
         } else if (root === aboutme1) {
           camTargetPos.set(0.24, 1.6, 3.76);
           camTargetLook.set(-1.79, 1.6, 5.07);
-        } else if (root === Pbrtext) {
+        } else if (root === pbrm1) {
           camTargetPos.set(-1.84, 1.6, -2.94);
           camTargetLook.set(-1.96, 1.59, -4.3);
         } else if (root === musicd) {
@@ -142,6 +204,13 @@
               o.material.color.set(0x00ff00);
             }
           });
+        }
+        // หยุดเพลงเมื่อกด backleft เท่านั้น
+        if (root === backleft) {
+          if (musicd && musicd.userData.clickSound) {
+            musicd.userData.clickSound.pause();
+            musicd.userData.clickSound.currentTime = 0; // รีเซ็ตให้กลับไปต้นเพลง
+          }
         }
 
         camLerping = true; // เริ่มเลื่อนกล้อง
@@ -216,8 +285,8 @@ void main() {
       dirLight.target = lightTarget1;
 
       // Shadow settings
-      dirLight.shadow.bias = 0.0002; 
-      dirLight.shadow.normalBias = 0.5; 
+      dirLight.shadow.bias = 0.0002;
+      dirLight.shadow.normalBias = 0.5;
 
       dirLight.shadow.mapSize.set(2048, 2048);
       dirLight.shadow.bias = -0.0005;
@@ -394,6 +463,7 @@ void main() {
       ground.position.y = 0;
       ground.receiveShadow = true;
       scene.add(ground);
+      checkLoadingDone();
 
       // Set scene background
       scene.background = new THREE.Color(0xbfd1e5);
@@ -427,6 +497,7 @@ void main() {
           });
           shopmodel.position.set(1.5, 0.2, 0);
           scene.add(shopmodel);
+          checkLoadingDone();
         },
         (xhr) =>
           console.log(
@@ -457,6 +528,7 @@ void main() {
           CHdeath.scale.set(0.004, 0.004, 0.004);
           CHdeath.rotation.y = Math.PI / 2;
           scene.add(CHdeath);
+          checkLoadingDone();
         },
         (xhr) =>
           console.log(
@@ -474,7 +546,7 @@ void main() {
         "https://Ghost6910.github.io/PortfolioG.github.io/model/hddr1.glb",
         (gltf) => {
           hddr1 = gltf.scene;
-         hddr1.traverse((o) => {
+          hddr1.traverse((o) => {
             if (o.isMesh) {
               o.castShadow = true;
               o.receiveShadow = true;
@@ -484,9 +556,10 @@ void main() {
               }
             }
           });
-          hddr1.position.set(1,1,1);
-          hddr1.scale.set(100,100,100);
+          hddr1.position.set(1, 1, 1);
+          hddr1.scale.set(100, 100, 100);
           scene.add(hddr1);
+          checkLoadingDone();
         },
         (xhr) =>
           console.log(
@@ -505,19 +578,51 @@ void main() {
           const makima = gltf.scene;
           makima.traverse((o) => {
             if (o.isMesh) {
+              const tex = o.material && o.material.map ? o.material.map : null;
+              const baseCol =
+                o.material && o.material.color
+                  ? o.material.color.clone()
+                  : new THREE.Color(0xffffff);
+
+              const toonMat = new THREE.MeshToonMaterial({
+                color: baseCol,
+                map: tex,
+                gradientMap: CEL_GRADIENT,
+              });
+              toonMat.color.multiplyScalar(0.7);
+
+              if (toonMat.map) {
+                toonMat.map.encoding = THREE.sRGBEncoding;
+                toonMat.map.needsUpdate = true;
+              }
+
+              o.material = toonMat;
               o.castShadow = true;
               o.receiveShadow = true;
-              if (o.material && o.material.map) {
-                o.material.map.encoding = THREE.sRGBEncoding;
-                o.material.needsUpdate = true;
-              }
             }
           });
+
+          // === เพิ่มเส้นขอบรอบนอก ===
+          const outline = makima.clone();
+          outline.traverse((o) => {
+            if (o.isMesh) {
+              // วัสดุสีดำ ขอบด้านหลัง
+              o.material = new THREE.MeshBasicMaterial({
+                color: 0x000000,
+                side: THREE.BackSide,
+              });
+              // ขยายออกเล็กน้อย (หนาเส้นขอบ)
+              o.scale.multiplyScalar(1.002);
+            }
+          });
+          makima.add(outline);
+
           makima.position.set(0.6, 0.2, -0.05);
           makima.scale.set(1, 1, 1);
           //makima.rotation.y = Math.PI / 2;
           makima.rotation.y = THREE.MathUtils.degToRad(45);
           scene.add(makima);
+          checkLoadingDone();
         },
         (xhr) =>
           console.log(
@@ -544,11 +649,12 @@ void main() {
               }
             }
           });
-          Ghost.position.set(-1.30, 0.8, 6);
+          Ghost.position.set(-1.3, 0.8, 6);
           Ghost.scale.set(1, 1, 1);
           //makima.rotation.y = Math.PI / 2;
           Ghost.rotation.y = THREE.MathUtils.degToRad(130);
           scene.add(Ghost);
+          checkLoadingDone();
         },
         (xhr) =>
           console.log(
@@ -560,14 +666,14 @@ void main() {
         (err) => console.error(err)
       );
 
-      //Pochita
-      let pochita;
+      //rusty
+      let rusty;
       loader.load(
-        "https://Ghost6910.github.io/PortfolioG.github.io/model/pochita.glb",
+        "https://Ghost6910.github.io/PortfolioG.github.io/model/rusty.glb",
         (gltf) => {
-          pochita = gltf.scene;
-          // ปรับวัสดุของ pochita ให้เห็นชัด
-          pochita.traverse((o) => {
+          rusty = gltf.scene;
+          // ปรับวัสดุของ rusty ให้เห็นชัด
+          rusty.traverse((o) => {
             if (o.isMesh && o.material) {
               // เพิ่มค่า metalness/roughness ให้เหมาะกับไฟ
               o.material.metalness = 0.5;
@@ -577,18 +683,19 @@ void main() {
             }
           });
 
-          pochita.position.set(-1.96, 1.4, -4.3);
-          pochita.scale.set(0.5, 0.5, 0.5);
+          rusty.position.set(-2.3, 1.4, -4.3);
+          rusty.scale.set(0.5, 0.5, 0.5);
 
-          // เพิ่มไฟเฉพาะที่ส่อง pochita
+          // เพิ่มไฟเฉพาะที่ส่อง rusty
           const ballLight = new THREE.SpotLight(0xffffff, 1.2);
           ballLight.position.set(-2, 2, -3);
           ballLight.angle = Math.PI / 6;
           ballLight.penumbra = 0.3;
           ballLight.castShadow = true;
-          ballLight.target = pochita;
+          ballLight.target = rusty;
           scene.add(ballLight);
           scene.add(ballLight.target);
+          checkLoadingDone();
         },
         (xhr) =>
           console.log(
@@ -629,6 +736,7 @@ void main() {
           ballLight1.target = vinyl_record;
           scene.add(ballLight1);
           scene.add(ballLight1.target);
+          checkLoadingDone();
         },
         (xhr) =>
           console.log(
@@ -655,6 +763,7 @@ void main() {
               }
             }
           });
+
           Clip.position.set(0.7, 1.5, 0.1);
           Clip.scale.set(0.17, 0.17, 0.17);
           Clip.rotation.y = Math.PI / 2;
@@ -667,6 +776,7 @@ void main() {
           tabledjLight.target = Clip;
           scene.add(tabledjLight);
           scene.add(tabledjLight.target);
+          checkLoadingDone();
         },
         (xhr) =>
           console.log(
@@ -709,6 +819,7 @@ void main() {
           aboutme1.rotation.y = Math.PI / 2;
           scene.add(aboutme1);
           backRoots.push(aboutme1);
+          checkLoadingDone();
         },
         (xhr) =>
           console.log(
@@ -720,13 +831,13 @@ void main() {
         (err) => console.error(err)
       );
 
-      //Pbrtext
-      let Pbrtext;
+      //pbrm1
+      let pbrm1;
       loader.load(
-        "https://Ghost6910.github.io/PortfolioG.github.io/model/Pbrtext.glb",
+        "https://Ghost6910.github.io/PortfolioG.github.io/model/pbrm1.glb",
         (gltf) => {
-          Pbrtext = gltf.scene;
-          Pbrtext.traverse((o) => {
+          pbrm1 = gltf.scene;
+          pbrm1.traverse((o) => {
             if (o.isMesh) {
               o.castShadow = true;
               o.receiveShadow = true;
@@ -745,11 +856,12 @@ void main() {
               }
             }
           });
-          Pbrtext.position.set(0.8, 1.55, 0.61);
-          Pbrtext.scale.set(0.09, 0.09, 0.09);
-          Pbrtext.rotation.y = Math.PI / 2;
-          scene.add(Pbrtext);
-          backRoots.push(Pbrtext);
+          pbrm1.position.set(0.8, 1.53, 0.63);
+          pbrm1.scale.set(0.1, 0.1, 0.1);
+          pbrm1.rotation.y = Math.PI / 2;
+          scene.add(pbrm1);
+          backRoots.push(pbrm1);
+          checkLoadingDone();
         },
         (xhr) =>
           console.log(
@@ -777,7 +889,7 @@ void main() {
                 if (o.material.map) {
                   o.material.map.encoding = THREE.sRGBEncoding;
                 }
-                o.material.color.set(0x282828); 
+                o.material.color.set(0x282828);
                 o.material.metalness = 0.2; // ทำให้ไม่เงาเกินไป
                 o.material.roughness = 0.6; // ปรับผิวให้ดูเป็นด้าน
 
@@ -790,6 +902,7 @@ void main() {
           //namenew.rotation.y = Math.PI / 2;
           namenew.rotation.y = THREE.MathUtils.degToRad(110);
           scene.add(namenew);
+          checkLoadingDone();
         },
         (xhr) =>
           console.log(
@@ -820,6 +933,7 @@ void main() {
           backright.rotation.y = THREE.MathUtils.degToRad(110);
           scene.add(backright);
           backRoots.push(backright);
+          checkLoadingDone();
         },
         (xhr) =>
           console.log(
@@ -849,6 +963,7 @@ void main() {
           //backright1.rotation.y = Math.PI / 2;
           scene.add(backright1);
           backRoots.push(backright1);
+          checkLoadingDone();
         },
         (xhr) =>
           console.log(
@@ -878,6 +993,7 @@ void main() {
           //backleft.rotation.y = Math.PI / 2;
           scene.add(backleft);
           backRoots.push(backleft);
+          checkLoadingDone();
         },
         (xhr) =>
           console.log(
@@ -911,6 +1027,7 @@ void main() {
           musicd.rotation.z = THREE.MathUtils.degToRad(270);
           scene.add(musicd);
           backRoots.push(musicd);
+          checkLoadingDone();
           musicd.userData.clickSound = new Audio(
             "https://Ghost6910.github.io/PortfolioG.github.io/sound/CHAINSAW_MAN_Opening_KICK_BACK.mp3"
           );
@@ -939,8 +1056,8 @@ void main() {
           window.__clock || (window.__clock = new THREE.Clock())
         ).getDelta();
 
-        if (pochita) {
-          pochita.rotation.y += 0.01;
+        if (rusty) {
+          rusty.rotation.y += 0.005;
         }
         if (vinyl_record) {
           vinyl_record.rotation.z += 0.01;
