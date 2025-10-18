@@ -515,6 +515,7 @@ void main() {
 
       //-------------------Model-----------------------------
 
+      let Ghost = null;
       // GLTF/GLB
       const draco = new THREE.DRACOLoader();
       draco.setDecoderPath(
@@ -688,7 +689,7 @@ void main() {
       loader.load(
         "https://Ghost6910.github.io/PortfolioG.github.io/model/G.host.glb",
         (gltf) => {
-          const Ghost = gltf.scene;
+          Ghost = gltf.scene;
           Ghost.traverse((o) => {
             if (o.isMesh) {
               o.castShadow = true;
@@ -704,6 +705,39 @@ void main() {
           //makima.rotation.y = Math.PI / 2;
           Ghost.rotation.y = THREE.MathUtils.degToRad(130);
           scene.add(Ghost);
+          checkLoadingDone();
+          Ghost.userData.baseY = Ghost.position.y;
+        },
+        (xhr) =>
+          console.log(
+            `Loading: ${(xhr.total
+              ? (xhr.loaded / xhr.total) * 100
+              : 0
+            ).toFixed(1)}%`
+          ),
+        (err) => console.error(err)
+      );
+
+      // ku logo
+      loader.load(
+        "ku.glb",
+        (gltf) => {
+          const ku = gltf.scene;
+          ku.traverse((o) => {
+            if (o.isMesh) {
+              o.castShadow = true;
+              o.receiveShadow = true;
+              if (o.material && o.material.map) {
+                o.material.map.encoding = THREE.sRGBEncoding;
+                o.material.needsUpdate = true;
+              }
+            }
+          });
+          ku.position.set(-2.2, 2.1, 4.5);
+          ku.scale.set(0.5, 0.5, 0.5);
+          //ku.rotation.y = Math.PI / 2;
+          ku.rotation.y = THREE.MathUtils.degToRad(110);
+          scene.add(ku);
           checkLoadingDone();
         },
         (xhr) =>
@@ -1159,6 +1193,11 @@ void main() {
             controls.target.copy(camTargetLook);
             camLerping = false;
           }
+        }
+
+        if (Ghost) {
+          const t = performance.now() * 0.001; // เวลา (วินาที)
+          Ghost.position.y = Ghost.userData.baseY + Math.sin(t * 0.9) * 0.2;
         }
 
         renderer.render(scene, camera);
