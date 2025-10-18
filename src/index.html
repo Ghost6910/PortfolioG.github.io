@@ -101,10 +101,12 @@
       const CEL_GRADIENT = makeGradientMap(4);
 
       // Renderer
-      const renderer = new THREE.WebGLRenderer();
-      renderer.outputEncoding = THREE.sRGBEncoding; // ให้สี/texture ตรง
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.outputEncoding = THREE.sRGBEncoding;
+      renderer.setPixelRatio(window.devicePixelRatio); // ทำให้ภาพคมขึ้น
       renderer.setSize(window.innerWidth, window.innerHeight);
       renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap; // ทำให้เงาและแสงนุ่ม
       document.body.appendChild(renderer.domElement);
 
       const scene = new THREE.Scene();
@@ -133,6 +135,20 @@
       const mouse = new THREE.Vector2();
       const backRoots = [];
 
+      let __audioCtx;
+      function __unlockAudio() {
+        try {
+          __audioCtx =
+            __audioCtx ||
+            new (window.AudioContext || window.webkitAudioContext)();
+          if (__audioCtx.state === "suspended") __audioCtx.resume();
+        } catch (e) {
+          /* ignore */
+        }
+      }
+      window.addEventListener("pointerdown", __unlockAudio, { once: true });
+      window.addEventListener("touchstart", __unlockAudio, { once: true });
+
       const backClickSfx = new Audio(
         "https://Ghost6910.github.io/PortfolioG.github.io/sound/chainsaw.mp3"
       );
@@ -155,12 +171,12 @@
         mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
       });
 
-      window.addEventListener("click", (e) => {
+      window.addEventListener("click", async (e) => {
         raycaster.setFromCamera(mouse, camera);
         const hits = raycaster.intersectObjects(backRoots, true);
         if (!hits.length) return;
 
-        // หา root ที่แท้จริง (walk ขึ้นไปจนเจอ object ที่อยู่ใน backRoots)
+        // หา root ที่แท้จริง
         const hitObj = hits[0].object;
         let node = hitObj,
           root = null;
@@ -191,29 +207,53 @@
           camTargetPos.set(-1.84, 1.6, -2.94);
           camTargetLook.set(-1.96, 1.59, -4.3);
         } else if (root === musicd) {
-          const s = musicd.userData.clickSound;
-          if (s) {
-            s.currentTime = 0; // รีเซ็ตให้เล่นใหม่ทุกครั้ง
-            s.play();
+          // ---- เล่นเพลงแบบปลอดภัย ----
+          let s = musicd.userData.clickSound;
+          if (!s) {
+            s = new Audio(musicd.userData.clickSoundSrc);
+            s.crossOrigin = "anonymous";
+            s.preload = "auto";
+            s.volume = 0.2;
+            musicd.userData.clickSound = s;
           }
+
+          // ปลดล็อกเสียง (ถ้ายัง)
+          __unlockAudio();
+
+          try {
+            s.currentTime = 0;
+            await s.play();
+          } catch (err) {
+            try {
+              if (__audioCtx && __audioCtx.state === "suspended") {
+                await __audioCtx.resume();
+              }
+              await s.play();
+            } catch (e2) {
+              console.warn("Play failed:", e2);
+            }
+          }
+
           camTargetPos.set(1.32, 1.6, -16.61);
           camTargetLook.set(1.32, 1.6, -24.6);
 
+          // ถ้าไม่อยากให้เปลี่ยนเป็นสีเขียวเวลา "คลิก" ด้วย ให้คอมเมนต์บล็อคนี้ทิ้งได้
           musicd.traverse((o) => {
             if (o.isMesh && o.material && o.material.color) {
               o.material.color.set(0x00ff00);
             }
           });
         }
-        // หยุดเพลงเมื่อกด backleft เท่านั้น
+
+        // กด backleft แล้วหยุดเพลง
         if (root === backleft) {
           if (musicd && musicd.userData.clickSound) {
             musicd.userData.clickSound.pause();
-            musicd.userData.clickSound.currentTime = 0; // รีเซ็ตให้กลับไปต้นเพลง
+            musicd.userData.clickSound.currentTime = 0;
           }
         }
 
-        camLerping = true; // เริ่มเลื่อนกล้อง
+        camLerping = true;
       });
 
       // อัปเดตเมาส์สำหรับ raycaster
@@ -258,7 +298,7 @@ void main() {
         fragmentShader: backFrag,
         uniforms: {
           uTime: { value: 0.0 },
-          uColor: { value: new THREE.Color(0x00ff00) },
+          uColor: { value: new THREE.Color(0xff8c00) },
         },
         side: THREE.DoubleSide,
       });
@@ -288,9 +328,12 @@ void main() {
       dirLight.shadow.bias = 0.0002;
       dirLight.shadow.normalBias = 0.5;
 
-      dirLight.shadow.mapSize.set(2048, 2048);
-      dirLight.shadow.bias = -0.0005;
-      dirLight.shadow.normalBias = 0.5;
+      dirLight.shadow.mapSize.set(4096, 4096); // เพิ่มความละเอียดเงา
+      dirLight.shadow.bias = -0.0002;
+      dirLight.shadow.normalBias = 0.3;
+
+      dirLight.penumbra = 0.5;
+      dirLight.intensity = 1.1;
 
       // ปรับระยะกล้องเงา (ขนาดพื้นที่ที่คำนวณเงา)
       const SHADOW_SIZE = 60;
@@ -584,17 +627,24 @@ void main() {
                   ? o.material.color.clone()
                   : new THREE.Color(0xffffff);
 
+              // ปรับการกรอง texture ให้เนียนขึ้น
+              if (tex) {
+                tex.encoding = THREE.sRGBEncoding;
+                tex.needsUpdate = true;
+                tex.minFilter = THREE.LinearMipmapLinearFilter;
+                tex.magFilter = THREE.LinearFilter;
+                tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+              }
+
+              // ใช้ toon ที่ "ขั้น" เยอะขึ้น + เปิด dithering
               const toonMat = new THREE.MeshToonMaterial({
                 color: baseCol,
                 map: tex,
-                gradientMap: CEL_GRADIENT,
+                gradientMap: makeGradientMap(16), // จากเดิม 4 --> 16 ขั้น เนียนขึ้น
+                dithering: true, // ช่วยแตกเม็ด banding ให้กลมกลืน
               });
-              toonMat.color.multiplyScalar(0.7);
 
-              if (toonMat.map) {
-                toonMat.map.encoding = THREE.sRGBEncoding;
-                toonMat.map.needsUpdate = true;
-              }
+              toonMat.color.multiplyScalar(0.7);
 
               o.material = toonMat;
               o.castShadow = true;
@@ -1028,11 +1078,11 @@ void main() {
           scene.add(musicd);
           backRoots.push(musicd);
           checkLoadingDone();
-          musicd.userData.clickSound = new Audio(
-            "https://Ghost6910.github.io/PortfolioG.github.io/sound/CHAINSAW_MAN_Opening_KICK_BACK.mp3"
-          );
-          musicd.userData.clickSound.preload = "auto";
-          musicd.userData.clickSound.volume = 0.2;
+
+          musicd.userData.clickSound = null; // จะสร้างตอนคลิก
+          musicd.userData.clickSoundSrc =
+            "https://Ghost6910.github.io/PortfolioG.github.io/sound/CHAINSAW_MAN_Opening_KICK_BACK.mp3";
+
           musicd.traverse((o) => {
             if (o.isMesh && o.material && o.material.color) {
               o.userData.baseColor = o.material.color.clone();
@@ -1085,22 +1135,13 @@ void main() {
         }
         for (const root of backRoots) {
           if (root === musicd) {
-            root.traverse((o) => {
-              if (o.isMesh && o.material && o.material.color) {
-                if (hoveredRoot === musicd) {
-                  o.material.color.set(0x00ff00);
-                } else if (o.userData.baseColor) {
-                  o.material.color.copy(o.userData.baseColor);
-                }
-              }
-            });
-          } else {
-            root.traverse((o) => {
-              if (o.isMesh) {
-                o.material = root === hoveredRoot ? backMatHover : backMat;
-              }
-            });
+            continue;
           }
+          root.traverse((o) => {
+            if (o.isMesh) {
+              o.material = root === hoveredRoot ? backMatHover : backMat;
+            }
+          });
         }
 
         // ==== Lerp กล้องเมื่อมีคำสั่งย้ายมุม ====
